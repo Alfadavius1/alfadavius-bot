@@ -10,7 +10,8 @@ const client = new Client({
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildPresences
     ]
 });
 
@@ -52,6 +53,37 @@ Ať tě hvězdy vedou, kadete.`
 
     } catch (err) {
         console.error("Chyba welcome zprávy:", err);
+    }
+});
+
+// === OZNÁMENÍ O STREAMU ===
+client.on("presenceUpdate", async (oldPresence, newPresence) => {
+    try {
+        const member = newPresence.member;
+
+        // Sem vlož své Discord ID
+        const STREAMER_ID = "TVŮJ_DISCORD_ID";
+
+        if (member.id !== STREAMER_ID) return;
+
+        const wasStreaming = oldPresence?.activities?.some(a => a.type === 1);
+        const isStreaming = newPresence?.activities?.some(a => a.type === 1);
+
+        if (!wasStreaming && isStreaming) {
+            const channel = member.guild.channels.cache.find(
+                ch => ch.name.includes("oznámení") || ch.name.includes("announce")
+            );
+
+            if (!channel) return console.log("Oznamovací kanál nenalezen.");
+
+            channel.send(
+                `🚀 **${member.user.username} právě zahájil živé vysílání!**  
+Připoj se ke streamu a podpoř posádku!`
+            );
+        }
+
+    } catch (err) {
+        console.error("Chyba stream oznámení:", err);
     }
 });
 
