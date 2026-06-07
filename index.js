@@ -19,10 +19,9 @@ const client = new Client({
 });
 
 // === READY EVENT ===
-client.on("clientReady", () => {
+client.on("ready", () => {
     console.log(`Bot je online jako ${client.user.tag}`);
 });
-
 
 // === WELCOME ZPRÁVA ===
 client.on("guildMemberAdd", async (member) => {
@@ -70,7 +69,7 @@ app.use(express.json());
 
 const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID;
 const TWITCH_SECRET = process.env.TWITCH_SECRET;
-const TWITCH_USER_ID = process.env.TWITCH_USER_ID;
+const TWITCH_USER_ID = "195231723"; // TVÉ OPRAVDOVÉ TWITCH ID
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
 
 let accessToken = "";
@@ -188,7 +187,6 @@ app.listen(PORT, async () => {
     await clearEventSubs();
     await subscribeToStreamOnline();
 });
-
 
 // === DISCORD LOGIN ===
 client.login(process.env.TOKEN);
