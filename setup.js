@@ -1,81 +1,88 @@
-const { Client, GatewayIntentBits, PermissionsBitField, ChannelType } = require('discord.js');
-require('dotenv').config();
+const { Client, GatewayIntentBits, PermissionsBitField } = require("discord.js");
+require("dotenv").config();
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent
+    ]
 });
 
-client.once('ready', async () => {
-  console.log(`Setup spuštěn jako ${client.user.tag}`);
+client.once("ready", async () => {
+    console.log(`Setup spuštěn jako ${client.user.tag}`);
 
-  const guild = await client.guilds.fetch(process.env.GUILD_ID);
+    try {
+        const guild = await client.guilds.fetch(process.env.GUILD_ID);
 
-  // ROLE
-  const roles = [
-    { name: 'Admin', color: 0xff0000, permissions: PermissionsBitField.Flags.Administrator },
-    { name: 'Moderátor', color: 0xff4444, permissions: PermissionsBitField.Flags.ManageMessages | PermissionsBitField.Flags.KickMembers },
-    { name: 'Helper', color: 0xff7777, permissions: PermissionsBitField.Flags.ManageMessages },
-    { name: 'VIP', color: 0x8b0000, permissions: 0 },
-    { name: 'Bot', color: 0x00ffff, permissions: PermissionsBitField.Flags.ManageMessages },
-    { name: 'Member', color: 0xffffff, permissions: 0 }
-  ];
+        // ROLE
+        const rolesToCreate = [
+            { name: "Admin", color: "#ff0000", permissions: [PermissionsBitField.Flags.Administrator] },
+            { name: "Moderátor", color: "#ff8800", permissions: [PermissionsBitField.Flags.ManageMessages, PermissionsBitField.Flags.KickMembers] },
+            { name: "Helper", color: "#00aaff", permissions: [] },
+            { name: "Member", color: "#ffffff", permissions: [] }
+        ];
 
-  for (const role of roles) {
-    await guild.roles.create({
-      name: role.name,
-      color: role.color,
-      permissions: role.permissions
-    });
-    console.log(`Vytvořena role: ${role.name}`);
-  }
+        for (const role of rolesToCreate) {
+            const created = await guild.roles.create({
+                name: role.name,
+                color: role.color,
+                permissions: role.permissions
+            });
+            console.log(`Vytvořena role: ${created.name}`);
+        }
 
-  // KATEGORIE + KANÁLY
-  const structure = [
-    {
-      name: '📢 Oznámení',
-      channels: ['pravidla', 'novinky', 'uvitani']
-    },
-    {
-      name: '💬 Komunita',
-      channels: ['obecny-chat', 'memes', 'fotky', 'dotazy']
-    },
-    {
-      name: '🎮 Gaming',
-      channels: ['hry-chat', 'hledam-spoluhrace', 'Hraní 1', 'Hraní 2']
-    },
-    {
-      name: '🎥 Stream & Media',
-      channels: ['live-stream', 'klipy', 'oznameni-streamu']
-    },
-    {
-      name: '🤖 Boty & Ekonomika',
-      channels: ['bot-commands', 'rpg', 'logy']
-    },
-    {
-      name: '🛡 Moderace',
-      channels: ['mod-log', 'admin-chat']
+        // KATEGORIE + KANÁLY
+        const categories = [
+            {
+                name: "📢 Informace",
+                channels: [
+                    { name: "📜 pravidla", type: 0 },
+                    { name: "📣 oznámení", type: 0 }
+                ]
+            },
+            {
+                name: "💬 Komunita",
+                channels: [
+                    { name: "💭 chat", type: 0 },
+                    { name: "📷 média", type: 0 }
+                ]
+            },
+            {
+                name: "🎤 Hlasové kanály",
+                channels: [
+                    { name: "🎧 Hlavní místnost", type: 2 },
+                    { name: "🎮 Gaming", type: 2 }
+                ]
+            }
+        ];
+
+        for (const category of categories) {
+            const cat = await guild.channels.create({
+                name: category.name,
+                type: 4
+            });
+
+            console.log(`Vytvořena kategorie: ${cat.name}`);
+
+            for (const ch of category.channels) {
+                const channel = await guild.channels.create({
+                    name: ch.name,
+                    type: ch.type,
+                    parent: cat.id
+                });
+                console.log(`Vytvořen kanál: ${channel.name}`);
+            }
+        }
+
+        console.log("Setup dokončen.");
+        process.exit(0);
+
+    } catch (err) {
+        console.error(err);
+        process.exit(1);
     }
-  ];
-
-  for (const category of structure) {
-    const cat = await guild.channels.create({
-      name: category.name,
-      type: ChannelType.GuildCategory
-    });
-
-    for (const ch of category.channels) {
-      await guild.channels.create({
-        name: ch,
-        type: ch.includes('Hraní') ? ChannelType.GuildVoice : ChannelType.GuildText,
-        parent: cat.id
-      });
-    }
-
-    console.log(`Kategorie vytvořena: ${category.name}`);
-  }
-
-  console.log('Setup dokončen.');
-  process.exit(0);
 });
 
 client.login(process.env.TOKEN);
