@@ -5,8 +5,7 @@ const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
+        GatewayIntentBits.GuildMessages
     ]
 });
 
@@ -38,15 +37,15 @@ client.once("ready", async () => {
             {
                 name: "📢 Informace",
                 channels: [
-                    { name: "📜 pravidla", type: 0 },
-                    { name: "📣 oznámení", type: 0 }
+                    { name: "📜-pravidla", type: 0 },
+                    { name: "📣-oznámení", type: 0 }
                 ]
             },
             {
                 name: "💬 Komunita",
                 channels: [
-                    { name: "💭 chat", type: 0 },
-                    { name: "📷 média", type: 0 }
+                    { name: "💭-chat", type: 0 },
+                    { name: "📷-média", type: 0 }
                 ]
             },
             {
