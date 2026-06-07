@@ -4,9 +4,8 @@ const {
     EmbedBuilder
 } = require("discord.js");
 require("dotenv").config();
-const express = require("express");
+const http = require("http");
 const axios = require("axios");
-const bodyParser = require("body-parser");
 
 // === DISCORD CLIENT ===
 const client = new Client({
@@ -19,67 +18,19 @@ const client = new Client({
     ]
 });
 
-client.on("clientReady", () => {
+client.on("ready", () => {
     console.log(`Bot je online jako ${client.user.tag}`);
 });
 
-// === EXPRESS APP ===
-const app = express();
-
-// 🔥 Twitch endpoint musí být RAW, bez JSON parseru
-app.post("/twitch", bodyParser.raw({ type: "*/*" }), (req, res) => {
-    const messageType = req.headers["twitch-eventsub-message-type"];
-
-    let body = {};
-    try {
-        body = JSON.parse(req.body.toString("utf8"));
-    } catch (e) {
-        console.log("❌ Chyba parsování RAW těla:", e);
-    }
-
-    console.log("📨 RAW Twitch request:", JSON.stringify(body, null, 2));
-
-    // Challenge
-    if (messageType === "webhook_callback_verification") {
-        console.log("Twitch poslal challenge.");
-        return res.status(200).send(body.challenge);
-    }
-
-    // Notifikace
-    if (messageType === "notification") {
-        const event = body.event;
-
-        console.log("📩 Twitch poslal notifikaci:", event);
-
-        if (event.type === "stream.online") {
-            console.log("Twitch poslal stream.online událost.");
-
-            const guild = client.guilds.cache.first();
-            const channel = guild.channels.cache.find(ch => ch.name.includes("live-stream"));
-
-            if (channel) {
-                channel.send(
-                    `🚀 **${event.broadcaster_user_name} je právě LIVE!**  
-Připoj se: https://twitch.tv/${event.broadcaster_user_login}`
-                );
-            }
-        }
-    }
-
-    return res.sendStatus(200);
-});
-
-// 🔥 VŠECHNY OSTATNÍ ENDPOINTY AŽ ZA RAW TWITCH ENDPOINTEM
-app.use(express.json());
-
+// === TWITCH CONFIG ===
 const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID;
 const TWITCH_SECRET = process.env.TWITCH_SECRET;
-const TWITCH_USER_ID = "195231723";
+const TWITCH_USER_ID = "195231723"; // tvoje Twitch ID
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
 
 let accessToken = "";
 
-// === TOKEN ===
+// === ZÍSKÁNÍ TWITCH TOKENU ===
 async function getTwitchToken() {
     const res = await axios.post(
         "https://id.twitch.tv/oauth2/token",
@@ -94,7 +45,7 @@ async function getTwitchToken() {
     console.log("Twitch token získán:", accessToken);
 }
 
-// === SMAZÁNÍ STARÝCH SUBS ===
+// === SMAZÁNÍ STARÝCH EVENTSUB ===
 async function clearEventSubs() {
     const res = await axios.get(
         "https://api.twitch.tv/helix/eventsub/subscriptions",
@@ -120,7 +71,7 @@ async function clearEventSubs() {
     }
 }
 
-// === REGISTRACE ===
+// === REGISTRACE EVENTSUB ===
 async function subscribeToStreamOnline() {
     try {
         const body = {
@@ -158,10 +109,68 @@ async function subscribeToStreamOnline() {
     }
 }
 
-// === START ===
+// === ČISTÝ NODE SERVER PRO TWITCH WEBHOOK ===
+const server = http.createServer(async (req, res) => {
+    if (req.method === "POST" && req.url === "/twitch") {
+        let rawBody = Buffer.alloc(0);
+
+        req.on("data", chunk => {
+            rawBody = Buffer.concat([rawBody, chunk]);
+        });
+
+        req.on("end", () => {
+            let body = {};
+            try {
+                body = JSON.parse(rawBody.toString("utf8"));
+            } catch (e) {
+                console.log("❌ Chyba parsování RAW těla:", e);
+            }
+
+            console.log("📨 RAW Twitch request:", JSON.stringify(body, null, 2));
+
+            const messageType = req.headers["twitch-eventsub-message-type"];
+
+            // Challenge
+            if (messageType === "webhook_callback_verification") {
+                console.log("Twitch poslal challenge.");
+                res.writeHead(200, { "Content-Type": "text/plain" });
+                return res.end(body.challenge);
+            }
+
+            // Notifikace
+            if (messageType === "notification") {
+                const event = body.event;
+
+                console.log("📩 Twitch poslal notifikaci:", event);
+
+                if (event.type === "stream.online") {
+                    console.log("Twitch poslal stream.online událost.");
+
+                    const guild = client.guilds.cache.first();
+                    const channel = guild.channels.cache.find(ch => ch.name.includes("live-stream"));
+
+                    if (channel) {
+                        channel.send(
+                            `🚀 **${event.broadcaster_user_name} je právě LIVE!**  
+Připoj se: https://twitch.tv/${event.broadcaster_user_login}`
+                        );
+                    }
+                }
+            }
+
+            res.writeHead(200);
+            res.end();
+        });
+    } else {
+        res.writeHead(200);
+        res.end("OK");
+    }
+});
+
+// === START SERVERU ===
 const PORT = process.env.PORT || 8080;
 
-app.listen(PORT, async () => {
+server.listen(PORT, async () => {
     console.log("Twitch webhook server běží na portu " + PORT);
     await getTwitchToken();
     await clearEventSubs();
