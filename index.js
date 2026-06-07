@@ -164,11 +164,13 @@ app.post("/twitch", async (req, res) => {
     // RAW LOG – zachytí úplně všechno
     console.log("📨 RAW Twitch request:", JSON.stringify(req.body, null, 2));
 
+    // 1) Challenge musí být zpracována okamžitě a čistě
     if (messageType === "webhook_callback_verification") {
         console.log("Twitch poslal challenge.");
         return res.status(200).send(req.body.challenge);
     }
 
+    // 2) Notifikace
     if (messageType === "notification") {
         const event = req.body.event;
 
@@ -185,13 +187,12 @@ app.post("/twitch", async (req, res) => {
                     `🚀 **${event.broadcaster_user_name} je právě LIVE!**  
 Připoj se: https://twitch.tv/${event.broadcaster_user_login}`
                 );
-            } else {
-                console.log("Kanál live-stream nenalezen.");
             }
         }
     }
 
-    res.sendStatus(200);
+    // 3) Vše ostatní dostane čisté 200 OK
+    return res.sendStatus(200);
 });
 
 // === SPUŠTĚNÍ WEBHOOK SERVERU ===
