@@ -93,6 +93,32 @@ async function getTwitchToken() {
     console.log("Twitch token získán:", accessToken);
 }
 
+// === SMAZÁNÍ STARÝCH EVENTSUB ===
+async function clearEventSubs() {
+    const res = await axios.get(
+        "https://api.twitch.tv/helix/eventsub/subscriptions",
+        {
+            headers: {
+                "Client-ID": TWITCH_CLIENT_ID,
+                "Authorization": `Bearer ${accessToken}`
+            }
+        }
+    );
+
+    for (const sub of res.data.data) {
+        await axios.delete(
+            `https://api.twitch.tv/helix/eventsub/subscriptions?id=${sub.id}`,
+            {
+                headers: {
+                    "Client-ID": TWITCH_CLIENT_ID,
+                    "Authorization": `Bearer ${accessToken}`
+                }
+            }
+        );
+        console.log("Smazáno:", sub.id);
+    }
+}
+
 // === REGISTRACE EVENTSUB ===
 async function subscribeToStreamOnline() {
     await axios.post(
@@ -157,6 +183,7 @@ Připoj se: https://twitch.tv/${event.broadcaster_user_login}`
 app.listen(3000, async () => {
     console.log("Twitch webhook server běží na portu 3000");
     await getTwitchToken();
+    await clearEventSubs();
     await subscribeToStreamOnline();
 });
 
