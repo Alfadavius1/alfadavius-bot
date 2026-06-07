@@ -18,7 +18,7 @@ const client = new Client({
     ]
 });
 
-client.on("ready", () => {
+client.on("clientReady", () => {
     console.log(`Bot je online jako ${client.user.tag}`);
 });
 
@@ -130,14 +130,17 @@ const server = http.createServer(async (req, res) => {
 
             const messageType = req.headers["twitch-eventsub-message-type"];
 
-            // Challenge
+            // === CHALLENGE ===
             if (messageType === "webhook_callback_verification") {
                 console.log("Twitch poslal challenge.");
+
+                const challenge = body.challenge;
+
                 res.writeHead(200, { "Content-Type": "text/plain" });
-                return res.end(body.challenge);
+                return res.end(challenge);
             }
 
-            // Notifikace
+            // === NOTIFIKACE ===
             if (messageType === "notification") {
                 const event = body.event;
 
