@@ -118,12 +118,11 @@ async function clearEventSubs() {
     }
 }
 
-// === REGISTRACE EVENTSUB (stream.start) ===
-async function subscribeToStreamStart() {
-    await axios.post(
-        "https://api.twitch.tv/helix/eventsub/subscriptions",
-        {
-            type: "stream.start",
+// === REGISTRACE EVENTSUB (stream.online) ===
+async function subscribeToStreamOnline() {
+    try {
+        const body = {
+            type: "stream.online",
             version: "1",
             condition: { broadcaster_user_id: TWITCH_USER_ID },
             transport: {
@@ -131,35 +130,49 @@ async function subscribeToStreamStart() {
                 callback: `${WEBHOOK_URL}/twitch`,
                 secret: "vexru_secret"
             }
-        },
-        {
-            headers: {
-                "Client-ID": TWITCH_CLIENT_ID,
-                "Authorization": `Bearer ${accessToken}`,
-                "Content-Type": "application/json"
-            }
-        }
-    );
+        };
 
-    console.log("Twitch EventSub přihlášen (stream.start).");
+        console.log("Odesílám EventSub registraci:", body);
+
+        await axios.post(
+            "https://api.twitch.tv/helix/eventsub/subscriptions",
+            body,
+            {
+                headers: {
+                    "Client-ID": TWITCH_CLIENT_ID,
+                    "Authorization": `Bearer ${accessToken}`,
+                    "Content-Type": "application/json"
+                },
+                timeout: 15000
+            }
+        );
+
+        console.log("Twitch EventSub přihlášen (stream.online).");
+
+    } catch (err) {
+        console.log("❌ CHYBA PŘI REGISTRACI EVENTSUB:");
+        console.log("STATUS:", err.response?.status);
+        console.log("DATA:", err.response?.data);
+        console.log("MESSAGE:", err.message);
+    }
 }
 
 // === TWITCH WEBHOOK ENDPOINT ===
 app.post("/twitch", async (req, res) => {
     const messageType = req.headers["twitch-eventsub-message-type"];
 
-    // Ověření webhooku
     if (messageType === "webhook_callback_verification") {
         console.log("Twitch poslal challenge.");
         return res.status(200).send(req.body.challenge);
     }
 
-    // Notifikace o streamu
     if (messageType === "notification") {
         const event = req.body.event;
 
-        if (event.type === "stream.start") {
-            console.log("Twitch poslal stream.start událost.");
+        console.log("📩 Twitch poslal notifikaci:", event);
+
+        if (event.type === "stream.online") {
+            console.log("Twitch poslal stream.online událost.");
 
             const guild = client.guilds.cache.first();
             const channel = guild.channels.cache.find(ch => ch.name.includes("live-stream"));
@@ -185,7 +198,7 @@ app.listen(PORT, async () => {
     console.log("Twitch webhook server běží na portu " + PORT);
     await getTwitchToken();
     await clearEventSubs();
-    await subscribeToStreamStart();
+    await subscribeToStreamOnline();
 });
 
 // === DISCORD LOGIN ===
