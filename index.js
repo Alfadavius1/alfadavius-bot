@@ -6,6 +6,7 @@ const {
 require("dotenv").config();
 const express = require("express");
 const axios = require("axios");
+const bodyParser = require("body-parser");
 
 // === DISCORD CLIENT ===
 const client = new Client({
@@ -18,63 +19,27 @@ const client = new Client({
     ]
 });
 
-// === READY EVENT ===
 client.on("clientReady", () => {
     console.log(`Bot je online jako ${client.user.tag}`);
 });
 
-// === WELCOME ZPRÁVA ===
-client.on("guildMemberAdd", async (member) => {
-    try {
-        const channel = member.guild.channels.cache.find(
-            ch => ch.name.includes("pravidla") || ch.name.includes("welcome")
-        );
-
-        if (!channel) return console.log("Welcome kanál nenalezen.");
-
-        const embed = new EmbedBuilder()
-            .setColor("#0a84ff")
-            .setTitle("🛸 Nový člen posádky na palubě!")
-            .setDescription(
-`Vítej, **${member}**.
-
-Senzory zaznamenaly nový životní signál a identifikace byla úspěšně dokončena.
-
-👨‍🚀 Status: Přijat do posádky  
-🚀 Loď: Vexru Command Vessel  
-🛰️ Mise: Průzkum, komunikace a přežití v neznámém sektoru
-
-Před vstupem do hlavního modulu si prosím prostuduj provozní protokol v kanálu #pravidla.
-
-Ať tě hvězdy vedou, kadete.`
-            )
-            .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-            .setFooter({ text: "Vexru Command • Galactic Entry Protocol" })
-            .setTimestamp();
-
-        channel.send({ embeds: [embed] });
-
-    } catch (err) {
-        console.error("Chyba welcome zprávy:", err);
-    }
-});
-
-
-// ======================================================
-// === TWITCH STREAM OZNÁMENÍ (EventSub Webhook) ===
-// ======================================================
-
+// === EXPRESS APP ===
 const app = express();
-app.use(express.json());
+
+// 🔥 Twitch vyžaduje RAW body pro challenge
+app.use("/twitch", bodyParser.raw({ type: "*/*" }));
+
+// Ostatní endpointy normálně JSON
+app.use(express.json({ limit: "1mb" }));
 
 const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID;
 const TWITCH_SECRET = process.env.TWITCH_SECRET;
-const TWITCH_USER_ID = "195231723"; // TVÉ OPRAVDOVÉ TWITCH ID
+const TWITCH_USER_ID = "195231723";
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
 
 let accessToken = "";
 
-// === ZÍSKÁNÍ TWITCH TOKENU ===
+// === TOKEN ===
 async function getTwitchToken() {
     const res = await axios.post(
         "https://id.twitch.tv/oauth2/token",
@@ -82,9 +47,6 @@ async function getTwitchToken() {
             client_id: TWITCH_CLIENT_ID,
             client_secret: TWITCH_SECRET,
             grant_type: "client_credentials"
-        },
-        {
-            headers: { "Content-Type": "application/json" }
         }
     );
 
@@ -92,7 +54,7 @@ async function getTwitchToken() {
     console.log("Twitch token získán:", accessToken);
 }
 
-// === SMAZÁNÍ STARÝCH EVENTSUB ===
+// === SMAZÁNÍ STARÝCH SUBS ===
 async function clearEventSubs() {
     const res = await axios.get(
         "https://api.twitch.tv/helix/eventsub/subscriptions",
@@ -118,7 +80,7 @@ async function clearEventSubs() {
     }
 }
 
-// === REGISTRACE EVENTSUB (stream.online) ===
+// === REGISTRACE ===
 async function subscribeToStreamOnline() {
     try {
         const body = {
@@ -142,8 +104,7 @@ async function subscribeToStreamOnline() {
                     "Client-ID": TWITCH_CLIENT_ID,
                     "Authorization": `Bearer ${accessToken}`,
                     "Content-Type": "application/json"
-                },
-                timeout: 15000
+                }
             }
         );
 
@@ -157,22 +118,29 @@ async function subscribeToStreamOnline() {
     }
 }
 
-// === TWITCH WEBHOOK ENDPOINT ===
-app.post("/twitch", async (req, res) => {
+// === TWITCH WEBHOOK ===
+app.post("/twitch", (req, res) => {
     const messageType = req.headers["twitch-eventsub-message-type"];
 
-    // RAW LOG – zachytí úplně všechno
-    console.log("📨 RAW Twitch request:", JSON.stringify(req.body, null, 2));
-
-    // 1) Challenge musí být zpracována okamžitě a čistě
-    if (messageType === "webhook_callback_verification") {
-        console.log("Twitch poslal challenge.");
-        return res.status(200).send(req.body.challenge);
+    // RAW body → musíme ho převést na JSON
+    let body = {};
+    try {
+        body = JSON.parse(req.body.toString("utf8"));
+    } catch (e) {
+        console.log("❌ Twitch poslal nevalidní JSON:", e);
     }
 
-    // 2) Notifikace
+    console.log("📨 RAW Twitch request:", JSON.stringify(body, null, 2));
+
+    // Challenge
+    if (messageType === "webhook_callback_verification") {
+        console.log("Twitch poslal challenge.");
+        return res.status(200).send(body.challenge);
+    }
+
+    // Notifikace
     if (messageType === "notification") {
-        const event = req.body.event;
+        const event = body.event;
 
         console.log("📩 Twitch poslal notifikaci:", event);
 
@@ -191,12 +159,11 @@ Připoj se: https://twitch.tv/${event.broadcaster_user_login}`
         }
     }
 
-    // 3) Vše ostatní dostane čisté 200 OK
     return res.sendStatus(200);
 });
 
-// === SPUŠTĚNÍ WEBHOOK SERVERU ===
-const PORT = process.env.PORT || 3000;
+// === START ===
+const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, async () => {
     console.log("Twitch webhook server běží na portu " + PORT);
