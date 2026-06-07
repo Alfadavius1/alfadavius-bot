@@ -62,7 +62,7 @@ client.on("presenceUpdate", async (oldPresence, newPresence) => {
         const member = newPresence.member;
 
         // Sem vlož své Discord ID
-        const STREAMER_ID = "TVŮJ_DISCORD_ID";
+        const STREAMER_ID = "581045053888397313";
 
         if (member.id !== STREAMER_ID) return;
 
