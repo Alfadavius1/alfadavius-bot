@@ -161,6 +161,9 @@ async function subscribeToStreamOnline() {
 app.post("/twitch", async (req, res) => {
     const messageType = req.headers["twitch-eventsub-message-type"];
 
+    // RAW LOG – zachytí úplně všechno
+    console.log("📨 RAW Twitch request:", JSON.stringify(req.body, null, 2));
+
     if (messageType === "webhook_callback_verification") {
         console.log("Twitch poslal challenge.");
         return res.status(200).send(req.body.challenge);
