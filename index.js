@@ -180,12 +180,15 @@ Připoj se: https://twitch.tv/${event.broadcaster_user_login}`
 });
 
 // === SPUŠTĚNÍ WEBHOOK SERVERU ===
-app.listen(3000, async () => {
-    console.log("Twitch webhook server běží na portu 3000");
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, async () => {
+    console.log("Twitch webhook server běží na portu " + PORT);
     await getTwitchToken();
     await clearEventSubs();
     await subscribeToStreamOnline();
 });
+
 
 // === DISCORD LOGIN ===
 client.login(process.env.TOKEN);
