@@ -19,7 +19,7 @@ const client = new Client({
 });
 
 // === READY EVENT ===
-client.on("ready", () => {
+client.on("clientReady", () => {
     console.log(`Bot je online jako ${client.user.tag}`);
 });
 
@@ -118,12 +118,12 @@ async function clearEventSubs() {
     }
 }
 
-// === REGISTRACE EVENTSUB ===
-async function subscribeToStreamOnline() {
+// === REGISTRACE EVENTSUB (stream.start) ===
+async function subscribeToStreamStart() {
     await axios.post(
         "https://api.twitch.tv/helix/eventsub/subscriptions",
         {
-            type: "stream.online",
+            type: "stream.start",
             version: "1",
             condition: { broadcaster_user_id: TWITCH_USER_ID },
             transport: {
@@ -141,7 +141,7 @@ async function subscribeToStreamOnline() {
         }
     );
 
-    console.log("Twitch EventSub přihlášen.");
+    console.log("Twitch EventSub přihlášen (stream.start).");
 }
 
 // === TWITCH WEBHOOK ENDPOINT ===
@@ -158,8 +158,8 @@ app.post("/twitch", async (req, res) => {
     if (messageType === "notification") {
         const event = req.body.event;
 
-        if (event.type === "stream.online") {
-            console.log("Twitch poslal stream.online událost.");
+        if (event.type === "stream.start") {
+            console.log("Twitch poslal stream.start událost.");
 
             const guild = client.guilds.cache.first();
             const channel = guild.channels.cache.find(ch => ch.name.includes("live-stream"));
@@ -185,7 +185,7 @@ app.listen(PORT, async () => {
     console.log("Twitch webhook server běží na portu " + PORT);
     await getTwitchToken();
     await clearEventSubs();
-    await subscribeToStreamOnline();
+    await subscribeToStreamStart();
 });
 
 // === DISCORD LOGIN ===
